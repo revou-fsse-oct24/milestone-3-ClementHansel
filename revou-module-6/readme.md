@@ -6,7 +6,7 @@ This document provides an explanation of the **User Login** and **Transaction Ha
 
 ## 1. User Login Flowchart
 
-![User Login Flowchart]([revou-module-6/user_login.png](https://github.com/revou-fsse-oct24/milestone-3-ClementHansel/blob/main/revou-module-6/revou-module-6/user_login.png))
+![User Login Flowchart](user_login.png))
 
 ### Description
 
@@ -30,7 +30,7 @@ The **User Login** flowchart represents the process of user authentication. It c
 
 ## 2. Transaction Handling Flowchart
 
-![Transaction Handling Flowchart](revou-module-6/transaction_handling.png)
+![Transaction Handling Flowchart](transaction_handling.png)
 
 ### Description
 
