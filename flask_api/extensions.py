@@ -3,3 +3,5 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 jwt = JWTManager()
+
+__all__ = ["db", "jwt"]

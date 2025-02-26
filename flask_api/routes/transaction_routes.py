@@ -10,52 +10,82 @@ transaction_bp = Blueprint('transaction_bp', __name__, url_prefix='/transactions
 @transaction_bp.route('', methods=['POST'])
 @jwt_required()
 def create_transaction():
+    """Create a new transaction (deposit, withdrawal, or transfer)."""
     user_id = int(get_jwt_identity())
     data = request.get_json()
-    
+
+    transaction_type = data.get("transaction_type")  # Renamed from "type"
+    amount = data.get("amount")
+    account_id = data.get("account_id")
+
     # Validate transaction type
-    if data["type"] not in ["withdrawal", "deposit", "transfer"]:
+    if transaction_type not in ["withdrawal", "deposit", "transfer"]:
         return jsonify({"error": "Invalid transaction type"}), 400
 
-    account = Account.query.get(data["account_id"])
-    if not account or account.owner_id != user_id:
+    # Validate amount
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        return jsonify({"error": "Amount must be a positive number"}), 400
+
+    account = Account.query.filter_by(id=account_id, owner_id=user_id).first()
+    if not account:
         return jsonify({"error": "Unauthorized: You do not own this account"}), 403
 
-    if data["type"] == "withdrawal":
-        if account.balance < data["amount"]:
+    if transaction_type == "withdrawal":
+        if account.balance < amount:
             return jsonify({"error": "Insufficient funds"}), 400
-        account.balance -= data["amount"]
+        account.balance -= amount
 
-    elif data["type"] == "deposit":
-        account.balance += data["amount"]
+    elif transaction_type == "deposit":
+        account.balance += amount
 
-    elif data["type"] == "transfer":
-        if "receiver_account_id" not in data:
+    elif transaction_type == "transfer":
+        receiver_account_id = data.get("receiver_account_id")
+
+        if not receiver_account_id:
             return jsonify({"error": "Receiver account ID required for transfers"}), 400
         
-        receiver_account = Account.query.get(data["receiver_account_id"])
+        receiver_account = Account.query.filter_by(id=receiver_account_id).first()
         if not receiver_account:
             return jsonify({"error": "Receiver account not found"}), 404
         if account.id == receiver_account.id:
             return jsonify({"error": "Cannot transfer to the same account"}), 400
-        if account.balance < data["amount"]:
+        if account.balance < amount:
             return jsonify({"error": "Insufficient funds"}), 400
-        
-        # Perform transfer
-        account.balance -= data["amount"]
-        receiver_account.balance += data["amount"]
-        db.session.add(receiver_account)
 
+        # Perform transfer
+        account.balance -= amount
+        receiver_account.balance += amount
+
+        # Create transaction records for both sender and receiver
+        sender_transaction = Transaction(
+            account_id=account.id,
+            amount=amount,
+            transaction_type="transfer_out"
+        )
+        receiver_transaction = Transaction(
+            account_id=receiver_account.id,
+            amount=amount,
+            transaction_type="transfer_in"
+        )
+
+        db.session.add(receiver_account)
+        db.session.add(receiver_transaction)
+
+    # Store transaction record
     transaction = Transaction(
         account_id=account.id,
-        amount=data["amount"],
-        type=data["type"]
+        amount=amount,
+        transaction_type=transaction_type
     )
 
-    db.session.add(account)
-    db.session.add(transaction)
-    db.session.commit()
-    
+    try:
+        db.session.add(account)
+        db.session.add(transaction)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Database error", "details": str(e)}), 500
+
     return jsonify({"transaction_id": transaction.id}), 201
 
 @transaction_bp.route('', methods=['GET'])
@@ -100,28 +130,29 @@ def get_transactions():
     return jsonify([{
         "id": t.id,
         "account_id": t.account_id,
-        "amount": t.amount,
-        "type": t.type,
+        "amount": str(t.amount),  # Convert Numeric to string for JSON response
+        "transaction_type": t.transaction_type,
         "timestamp": t.timestamp.isoformat()
     } for t in transactions]), 200
 
 @transaction_bp.route('/<int:transaction_id>', methods=['GET'])
 @jwt_required()
 def get_transaction(transaction_id):
+    """Retrieve details of a specific transaction."""
     user_id = int(get_jwt_identity())
-    transaction = Transaction.query.get(transaction_id)
+    transaction = Transaction.query.filter_by(id=transaction_id).first()
 
     if not transaction:
         return jsonify({"error": "Transaction not found"}), 404
   
-    account = Account.query.get(transaction.account_id)
-    if not account or account.owner_id != user_id:
+    account = Account.query.filter_by(id=transaction.account_id, owner_id=user_id).first()
+    if not account:
         return jsonify({"error": "Unauthorized: You do not own this account"}), 403
 
     return jsonify({
         "id": transaction.id,
         "account_id": transaction.account_id,
-        "amount": transaction.amount,
-        "type": transaction.type,
+        "amount": str(transaction.amount),
+        "transaction_type": transaction.transaction_type,
         "timestamp": transaction.timestamp.isoformat()
     }), 200

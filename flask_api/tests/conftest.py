@@ -1,45 +1,53 @@
+import os
 import pytest
-from app import create_app
-from models import db
-from flask_jwt_extended import create_access_token
-from models.user_model import User  # Ensure correct import
+from app import create_app, db
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def app():
-    """Set up a test Flask app."""
+    """Set up a test Flask app with a fresh database."""
+    # Set test-specific environment variables before creating the app
+    os.environ["DATABASE_URL"] = "sqlite:///:memory:"  # Use in-memory database for tests
+    os.environ["FLASK_DEBUG"] = "True"
+    os.environ["TESTING"] = "True"
+    
+    # Now create the app
     app = create_app()
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["TESTING"] = True
-    app.config["JWT_SECRET_KEY"] = "test_secret_key"  # 🔥 Add this line
 
     with app.app_context():
+        db.drop_all()  # Ensure a fresh start
         db.create_all()
         yield app
         db.session.remove()
-        db.drop_all()
+        db.drop_all()  # Cleanup after tests
 
-
-@pytest.fixture(scope="function")
+@pytest.fixture
 def client(app):
-    """Create a new test client."""
+    """Return a test client."""
     return app.test_client()
 
 @pytest.fixture
 def auth_token(client):
-    """Registers a test user and returns a JWT token."""
-    user_data = {"username": "testuser", "password": "testpassword"}
+    """Register and log in a test user to get a JWT token."""
+    user_data = {
+    "username": "accountuser",
+    "password": "testpassword",
+    "email": "accountuser@example.com"
+}
 
-    # Register user
-    reg_response = client.post("/api/auth/register", json=user_data)
-    print("REGISTER RESPONSE:", reg_response.get_json())  # 🔍 Debugging
 
-    # Log in to get token
-    login_response = client.post("/api/auth/login", json=user_data)
-    print("LOGIN RESPONSE:", login_response.get_json())  # 🔍 Debugging
+    # Register user if needed
+    reg_resp = client.post("/api/users/register", json=user_data)
+    if reg_resp.status_code not in [200, 201]:
+        print(f"User registration skipped: {reg_resp.get_json()}")
 
-    assert login_response.status_code == 200, f"Login failed: {login_response.get_json()}"
+    # Login to get token
+    login_resp = client.post("/api/users/login", json=user_data)
+    assert login_resp.status_code == 200, f"Login failed: {login_resp.get_json()}"
+    assert login_resp.is_json, f"Expected JSON response but got: {login_resp.data}"
 
-    token = login_response.get_json().get("access_token")
-    assert token, "No access token received!"  # 🔥 Ensure token exists
+    token = login_resp.get_json().get("access_token")
+    assert token, "Failed to retrieve JWT token"
+    print(f"Generated Token: {token}")
+
     return f"Bearer {token}"

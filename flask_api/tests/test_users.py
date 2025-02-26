@@ -9,7 +9,9 @@ class UserTestCase(unittest.TestCase):
         self.client = self.app.test_client()
 
         with self.app.app_context():
-            db.create_all()
+            db.session.remove()  # Ensure no active sessions
+            db.drop_all()        # Drop all tables to avoid conflicts
+            db.create_all()      # Recreate fresh tables
 
     def tearDown(self):
         """Clean up database after each test."""
@@ -20,11 +22,17 @@ class UserTestCase(unittest.TestCase):
     def test_create_user(self):
         """Test user creation endpoint."""
         response = self.client.post("/api/users", json={
-            "username": "test",
-            "password": "1234"
+            "username": "testuser",
+            "password": "TestPassword123!",
+            "email": "test@example.com"
         })
         
         self.assertEqual(response.status_code, 201, response.get_json())
 
-if __name__ == '__main__':
+        # Ensure response contains expected fields
+        data = response.get_json()
+        self.assertIn("user_id", data)
+        self.assertEqual(data.get("username"), "testuser")
+
+if __name__ == "__main__":
     unittest.main()

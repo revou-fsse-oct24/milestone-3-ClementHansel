@@ -2,15 +2,14 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import (
     jwt_required, get_jwt, create_access_token, get_jwt_identity
 )
-from extensions import jwt  # JWTManager instance from extensions.py
+from extensions import jwt
 from models import db
 from models.user_model import User
+from models.token_blacklist import TokenBlacklist
 from werkzeug.security import generate_password_hash, check_password_hash
+from blacklist import blacklisted_tokens
 
-auth_bp = Blueprint("auth", __name__)
-
-# Global blacklisted tokens set (use Redis or DB in production)
-blacklisted_tokens = set()
+auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
@@ -18,16 +17,19 @@ def register():
     data = request.get_json()
     username = data.get("username")
     password = data.get("password")
+    email = data.get("email")
 
-    if not username or not password:
-        return jsonify({"message": "Username and password are required"}), 400
+    if not username or not password or not email:
+        return jsonify({"message": "Username, email, and password are required"}), 400
 
-    existing_user = User.query.filter_by(username=username).first()
-    if existing_user:
-        return jsonify({"message": "User already exists"}), 400
+    # Ensure username and email are unique
+    if User.query.filter_by(username=username).first():
+        return jsonify({"message": "Username already exists"}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({"message": "Email already exists"}), 400
 
     hashed_password = generate_password_hash(password)
-    new_user = User(username=username, password_hash=hashed_password)
+    new_user = User(username=username, email=email, password_hash=hashed_password)
     db.session.add(new_user)
     db.session.commit()
 
@@ -56,29 +58,38 @@ def login():
 def get_profile():
     """Get user profile."""
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    user = User.query.filter_by(id=user_id).first()
 
     if not user:
         return jsonify({"message": "User not found"}), 404
 
-    return jsonify({"user_id": user.id, "username": user.username}), 200
+    return jsonify({
+        "user_id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "phone": user.phone,
+    }), 200
 
 @auth_bp.route("/logout", methods=["POST"])
 @jwt_required()
 def logout():
-    """Logout user and blacklist token."""
-    jti = get_jwt().get("jti")  # Get JWT token identifier
+    jti = get_jwt().get("jti")
     if jti:
-        blacklisted_tokens.add(jti)  # Add token identifier to the blacklist
+        blacklisted_tokens.add(jti)
         return jsonify({"message": "Successfully logged out"}), 200
     return jsonify({"message": "Invalid token"}), 400
 
-@auth_bp.route("/users/<int:user_id>", methods=["DELETE"])
+
+@auth_bp.route("/<int:user_id>", methods=["DELETE"])
 @jwt_required()
 def delete_user(user_id):
-    """Delete a user."""
-    user = User.query.get(user_id)
+    """Delete a user (only if it’s the authenticated user)."""
+    current_user_id = get_jwt_identity()
+    
+    if int(current_user_id) != user_id:
+        return jsonify({"message": "Unauthorized"}), 403
 
+    user = User.query.filter_by(id=user_id).first()
     if not user:
         return jsonify({"message": "User not found"}), 404
 
@@ -89,5 +100,4 @@ def delete_user(user_id):
 
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blocklist(jwt_header, jwt_payload):
-    """Check if a token is blacklisted."""
     return jwt_payload.get("jti") in blacklisted_tokens
