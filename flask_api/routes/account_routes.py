@@ -5,6 +5,12 @@ from models.account_model import Account
 
 account_bp = Blueprint('account_bp', __name__, url_prefix='/accounts')
 
+def get_user_account(user_id, account_id=None):
+    """Helper function to fetch user account by account_id."""
+    if account_id:
+        return Account.query.filter_by(id=account_id, owner_id=user_id).first()
+    return Account.query.filter_by(owner_id=user_id).all()
+
 @account_bp.route('', methods=['POST'])
 @jwt_required()
 def create_account():
@@ -36,7 +42,7 @@ def create_account():
 def get_accounts():
     """Retrieve all accounts owned by the authenticated user."""
     user_id = int(get_jwt_identity())
-    accounts = Account.query.filter_by(owner_id=user_id).all()
+    accounts = get_user_account(user_id)
     
     return jsonify([
         {"id": acc.id, "account_name": acc.account_name, "balance": str(acc.balance)} 
@@ -48,7 +54,7 @@ def get_accounts():
 def get_account(account_id):
     """Retrieve details of a specific account by its ID."""
     user_id = int(get_jwt_identity())
-    account = Account.query.filter_by(id=account_id, owner_id=user_id).first()
+    account = get_user_account(user_id, account_id)
     
     if not account:
         return jsonify({"error": "Account not found or unauthorized"}), 404
@@ -60,7 +66,7 @@ def get_account(account_id):
 def update_account(account_id):
     """Update details of an existing account (only if owned by the authenticated user)."""
     user_id = int(get_jwt_identity())
-    account = Account.query.filter_by(id=account_id, owner_id=user_id).first()
+    account = get_user_account(user_id, account_id)
     
     if not account:
         return jsonify({"error": "Account not found or unauthorized"}), 404
@@ -91,7 +97,7 @@ def update_account(account_id):
 def delete_account(account_id):
     """Delete an account if the authenticated user is the owner."""
     user_id = int(get_jwt_identity())
-    account = Account.query.filter_by(id=account_id, owner_id=user_id).first()
+    account = get_user_account(user_id, account_id)
     
     if not account:
         return jsonify({"error": "Account not found or unauthorized"}), 404

@@ -73,9 +73,10 @@ def get_profile():
 @auth_bp.route("/logout", methods=["POST"])
 @jwt_required()
 def logout():
+    """Logout user by blacklisting the token."""
     jti = get_jwt().get("jti")
     if jti:
-        blacklisted_tokens.add(jti)
+        blacklisted_tokens.add(jti)  # Add the token JTI to the blacklist
         return jsonify({"message": "Successfully logged out"}), 200
     return jsonify({"message": "Invalid token"}), 400
 
@@ -100,4 +101,5 @@ def delete_user(user_id):
 
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blocklist(jwt_header, jwt_payload):
+    """Check if the token's JTI is blacklisted."""
     return jwt_payload.get("jti") in blacklisted_tokens

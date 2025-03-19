@@ -12,8 +12,12 @@ class Config:
     
     SECRET_KEY = os.getenv('SECRET_KEY', 'default_fallback_secret_key')
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'default_fallback_jwt_key')
-   
-    SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(basedir, "data", "db.sqlite3").replace("\\", "/")
+
+    # PostgreSQL connection details
+    SQLALCHEMY_DATABASE_URI = os.getenv(
+        'DATABASE_URL', 
+        'postgresql://postgres:123456@localhost:5432/bank_db'  # Updated with provided credentials
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(seconds=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", "3600").strip()))

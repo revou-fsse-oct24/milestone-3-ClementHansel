@@ -1,17 +1,35 @@
 import re
 from models.user_model import User, db
 
+def validate_email(email):
+    """Validate email format."""
+    return re.match(r"[^@]+@[^@]+\.[^@]+", email)
+
+def validate_password(password):
+    """Validate password format: At least 8 characters, a number, and an uppercase letter."""
+    if len(password) < 8 or not re.search(r"\d", password) or not re.search(r"[A-Z]", password):
+        return False
+    return True
+
+def validate_field_update(user, field, value):
+    """Helper function to validate fields during user update."""
+    if field == "email" and not validate_email(value):
+        return {"error": "Invalid email format"}, 400
+    setattr(user, field, value)
+    return None  # No error
+
 def register_user(username, password, email, address=None, phone=None):
     """Register a new user with validation checks."""
     if User.query.filter_by(username=username).first():
         return {"error": "Username already exists"}, 400
+
     if email:
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):  # Validate email format
+        if not validate_email(email):  # Validate email format
             return {"error": "Invalid email format"}, 400
         if User.query.filter_by(email=email).first():
             return {"error": "Email already registered"}, 400
 
-    if len(password) < 8 or not re.search(r"\d", password) or not re.search(r"[A-Z]", password):
+    if not validate_password(password):  # Validate password format
         return {"error": "Password must be at least 8 characters long, include a number and an uppercase letter"}, 400
 
     new_user = User(username=username, email=email, address=address, phone=phone)
@@ -47,9 +65,9 @@ def update_user(user_id, **kwargs):
     valid_fields = {"username", "email", "address", "phone"}  # Only allow valid fields
     for key, value in kwargs.items():
         if key in valid_fields and value is not None:
-            if key == "email" and not re.match(r"[^@]+@[^@]+\.[^@]+", value):
-                return {"error": "Invalid email format"}, 400
-            setattr(user, key, value)
+            error_response = validate_field_update(user, key, value)
+            if error_response:
+                return error_response
 
     try:
         db.session.commit()

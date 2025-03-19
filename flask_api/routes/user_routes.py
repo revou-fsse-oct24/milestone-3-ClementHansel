@@ -138,9 +138,10 @@ def update_profile_details():
     if "address" in data:
         user.address = data["address"]
     if "phone" in data:
-        if not re.match(r"^\+?\d{10,15}$", data["phone"]):  # Validate phone number
+        phone = data["phone"]
+        if not re.match(r"^\+?\d{10,15}$", phone):  # Validate phone number
             return jsonify({"message": "Invalid phone number format"}), 400
-        user.phone = data["phone"]
+        user.phone = phone
 
     db.session.commit()
     return jsonify({"message": "Profile details updated successfully"}), 200

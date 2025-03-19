@@ -68,10 +68,10 @@ def create_transaction():
             transaction_type="transfer_in"
         )
 
-        db.session.add(receiver_account)
+        db.session.add(sender_transaction)
         db.session.add(receiver_transaction)
 
-    # Store transaction record
+    # Store transaction record for the sender
     transaction = Transaction(
         account_id=account.id,
         amount=amount,

@@ -12,5 +12,11 @@ class Account(db.Model):
     # Relationship to User model
     owner = db.relationship("User", back_populates="accounts")
 
+    def __init__(self, owner_id, account_name, balance=0.00):
+        """Initialize the Account object with the given parameters."""
+        self.owner_id = owner_id
+        self.account_name = account_name
+        self.balance = balance
+
     def __repr__(self):
         return f"<Account(id={self.id}, name={self.account_name}, balance={self.balance})>"
