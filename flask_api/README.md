@@ -2,6 +2,11 @@
 
 **Overview**
 
+Hansel Bank API Link deployed in :
+
+1. Koyeb : https://wet-francoise-greedybugz-3bc4de3c.koyeb.app/
+2. GitHub : https://github.com/revou-fsse-oct24/milestone-3-ClementHansel
+
 The Hansel Bank API is a RESTful backend for a modern banking application. It provides core functionality for:
 
 - **User Management**: Registering, logging in, and managing user profiles.
