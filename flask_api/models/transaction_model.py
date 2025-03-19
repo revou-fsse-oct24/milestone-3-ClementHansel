@@ -16,7 +16,7 @@ class Transaction(db.Model):
     def __init__(self, account_id, amount, transaction_type, timestamp=None):
         self.account_id = account_id
         self.amount = amount
-        self.transaction_type = transaction_type
+        self.transaction_type = transaction_type  # Ensure you are using 'transaction_type' here
         if timestamp:
             self.timestamp = timestamp
         else:

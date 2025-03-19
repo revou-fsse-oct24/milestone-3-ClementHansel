@@ -12,20 +12,23 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    # Initialize extensions
     db.init_app(app)
     Migrate(app, db)
     jwt.init_app(app)
 
+    # Initialize the database
     init_db(app)
-    with app.app_context():
-        db.create_all()
-    
+
+    # Register routes
     register_routes(app)
 
+    # Home route
     @app.route('/')
     def home():
         return jsonify({"message": "Welcome to Hansel-Bank API"}), 200
 
+    # Logout route
     @app.route("/logout", methods=["POST"])
     @jwt_required()
     def logout():
@@ -35,12 +38,14 @@ def create_app():
             return jsonify({"message": "Successfully logged out"}), 200
         return jsonify({"message": "Invalid token"}), 400
 
+    # Token blacklist check
     @jwt.token_in_blocklist_loader
     def check_if_token_in_blacklist(jwt_header, jwt_payload):
-        return jwt_payload["jti"] in blacklisted_tokens
+        return jwt_payload.get("jti") in blacklisted_tokens
 
     return app
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True)
+    # Run the app with debug mode controlled by environment variable
+    app.run(debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true')

@@ -87,19 +87,19 @@ with app.app_context():
         {
             "account_id": created_accounts[0].id,
             "amount": 250.0,
-            "type": "deposit",  # Must match the column name in Transaction model
+            "transaction_type": "deposit",  # Must match the column name in Transaction model
             "timestamp": datetime.now()
         },
         {
             "account_id": created_accounts[1].id,
             "amount": 100.0,
-            "type": "withdrawal",
+            "transaction_type": "withdrawal",
             "timestamp": datetime.now()
         },
         {
             "account_id": created_accounts[2].id,
             "amount": 500.0,
-            "type": "deposit",
+            "transaction_type": "deposit",
             "timestamp": datetime.now()
         }
     ]
@@ -108,7 +108,7 @@ with app.app_context():
         new_transaction = Transaction(
             account_id=tx_data["account_id"],
             amount=tx_data["amount"],
-            type=tx_data["type"],
+            transaction_type=tx_data["transaction_type"],
             timestamp=tx_data["timestamp"]
         )
         db.session.add(new_transaction)
